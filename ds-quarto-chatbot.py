@@ -6,6 +6,7 @@
 import os
 import sys
 import json
+import re
 
 from app_utils import load_dotenv
 from anthropic import AsyncAnthropic
@@ -13,8 +14,8 @@ from anthropic import AsyncAnthropic
 from shiny.express import ui
 from openai import AsyncOpenAI
 
-model = os.environ.get('DS_QUARTO_MODEL') or 'openai' # anthropic broke with tools
-
+model = os.environ.get('QUARTO_DS_CHATBOT_MODEL') or 'openai' # anthropic broke with tools
+outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 # Either explicitly set the ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
 # as environment variables which can later be read by `os.getenv()`.
@@ -36,9 +37,14 @@ ui.page_opts(
 )
 
 system_prompt = """
-You are a data science chatbot. When you are asked a question,
+You are a terse data science chatbot. When you are asked a question,
 you will submit your answer in the form of a Quarto markdown document
-including your explanation and any requested code.
+including the original question, your explanation, and any requested code.
+For the filename, use a five-word summary of the question separated by
+dashes and an extension .qmd
+Make sure to include the Quarto metadata block at the top of the document.
+And use curly braces around the language in any executable code blocks.
+Thank you!
 """
 
 
@@ -53,9 +59,26 @@ match model:
 # Create and display empty chat
 chat.ui()
 
-def show_answer(answer):
-    print('received markdown?')
+def show_answer(filename, answer):
+    print('\nreceived quarto markdown result\n')
     print(answer)
+    if filename:
+        if not re.search(r'\.qmd$', filename):
+            filename = filename + '.qmd' # choose your battles
+        count = None
+        while True:
+            if count:
+                filename2 = re.sub(r'\.qmd$', '-' + str(count) + '.qmd', filename)
+            else:
+                filename2 = filename
+            filename2 = os.path.join(outdir, filename2)
+            try:
+                with open(filename2, "x") as qmd_file:
+                    print('\nwrote answer to', filename2)
+                    qmd_file.write(answer)
+                    break
+            except:
+                count = (count or 1) + 1
 
 tools = [
     {
@@ -66,12 +89,16 @@ tools = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": "The name of the Quarto markdown file to output, with base derived from the question and extension .qmd"
+                    },
                     "answer": {
                         "type": "string",
                         "description": "The answer and explanation as a Quarto markdown document",
                     },
                 },
-                "required": ["answer"],
+                "required": ["filename", "answer"],
             },
         },
     }
@@ -99,8 +126,9 @@ async def process_conversation(messages):
 
         if function_name == "show_answer":
             answer = function_args.get("answer")
-            show_answer(answer)
-            content = answer
+            filename = function_args.get("filename")
+            show_answer(filename, answer)
+            content = '````\n' + answer + '````\n'
         else:
             # If the function is unknown, return an error message
             # and also log to stderr
