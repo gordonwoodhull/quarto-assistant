@@ -48,8 +48,10 @@ Make sure to include the Quarto metadata block at the top of the document,
 including the key description and value "{provider} {model}"
 The date is {str(datetime.now())}
 You don't need to add quadruple backticks around the document.
-Please use curly braces around the language in any executable code blocks.
-And thank you!
+Please remember to surround the language with curly braces when outputting a code block, e.g.
+```{{python}}
+```{{r}}
+Thank you!
 """
 
 
@@ -129,6 +131,9 @@ async def process_conversation(messages):
     message = response.choices[0].message
 
     if not message.tool_calls:
+        # we're expecting all replies through tool calls, but regular responses are possible
+        print('\nUh oh, received chat response\n')
+        print(response)
         await chat.append_message(response)
         return
 
