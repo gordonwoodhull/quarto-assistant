@@ -7,48 +7,53 @@ import os
 import sys
 import json
 import re
-
+from datetime import datetime
 from app_utils import load_dotenv
 from anthropic import AsyncAnthropic
 
 from shiny.express import ui
 from openai import AsyncOpenAI
 
-model = os.environ.get('QUARTO_DS_CHATBOT_MODEL') or 'openai' # anthropic broke with tools
+provider = os.environ.get('QUARTO_DS_CHATBOT_MODEL') or 'openai' # anthropic broke with tools
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 # Either explicitly set the ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
 # as environment variables which can later be read by `os.getenv()`.
 load_dotenv()
-match model:
+match provider:
     case 'anthropic':
         llm = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        model = "claude-3-opus-20240229"
     case 'openai':
         llm = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        model = "gpt-4o" # Make sure to use a model that supports function calling
     case _:
-        print('unsupported model', model)
+        print('unsupported provider', provider)
         sys.exit(2)
 
 # Set some Shiny page options
 ui.page_opts(
-    title="Quarto Data Science Chat (" + model + ")",
+    title="Quarto Data Science Chat (" + provider + ")",
     fillable=True,
     fillable_mobile=True,
 )
 
-system_prompt = """
+system_prompt = f"""
 You are a terse data science chatbot. When you are asked a question,
 you will submit your answer in the form of a Quarto markdown document
 including the original question, your explanation, and any requested code.
-For the filename, use a five-word summary of the question separated by
-dashes and an extension .qmd
-Make sure to include the Quarto metadata block at the top of the document.
-And use curly braces around the language in any executable code blocks.
-Thank you!
+For the filename, use a five-word summary of the question, separated by
+dashes and the extension .qmd
+Make sure to include the Quarto metadata block at the top of the document,
+including the key description and value "{provider} {model}"
+The date is {str(datetime.now())}
+You don't need to add quadruple backticks around the document.
+Please use curly braces around the language in any executable code blocks.
+And thank you!
 """
 
 
-match model:
+match provider:
     case 'anthropic':
         chat = ui.Chat(id="chat")
     case 'openai':
@@ -106,12 +111,20 @@ tools = [
 
 
 async def process_conversation(messages):
-    response = await llm.chat.completions.create(
-        model="gpt-4o",  # Make sure to use a model that supports function calling
-        messages=messages,
-        tools=tools,
-        tool_choice="auto",
-    )
+    match provider:
+        case 'anthropic':
+            response = await llm.messages.create(
+                model=model,
+                messages=messages,
+                max_tokens=1000,
+            )
+        case 'openai':
+            response = await llm.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+            )
 
     message = response.choices[0].message
 
@@ -149,6 +162,6 @@ async def process_conversation(messages):
 @chat.on_user_submit
 async def _():
     # Get messages currently in the chat
-    messages = chat.messages(format=model)
+    messages = chat.messages(format=provider)
 
     await process_conversation(messages)
