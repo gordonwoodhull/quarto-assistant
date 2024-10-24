@@ -14,6 +14,6 @@ shiny run ds-quarto-chatbot.py
 
 ## To do
 
-* Anthropic support coming soon!
+* Anthropic support coming soon-ish!
 * Should be possible to specify other models, as long as they support tools / function calls.
 * Would be nice to make a full assistant app out of this, with edit and Quarto preview panes.
