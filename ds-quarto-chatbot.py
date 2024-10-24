@@ -14,11 +14,14 @@ from anthropic import AsyncAnthropic
 from shiny.express import ui
 from openai import AsyncOpenAI
 
-provider = os.environ.get('QUARTO_DS_CHATBOT_MODEL') or 'openai' # anthropic broke with tools
-outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
-# Either explicitly set the ANTHROPIC_API_KEY environment variable before launching the
+# Either explicitly set the OPENAI_API_KEY (or soon, ANTHROPIC_API_KEY) environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
 # as environment variables which can later be read by `os.getenv()`.
+
+provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'openai'
+outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
+
+
 load_dotenv()
 match provider:
     case 'anthropic':
@@ -31,6 +34,9 @@ match provider:
         print('unsupported provider', provider)
         sys.exit(2)
 
+print(f'Using provider {provider}, model {model}')
+print('Output directory:', outdir)
+
 # Set some Shiny page options
 ui.page_opts(
     title="Quarto Data Science Chat (" + provider + ")",
@@ -42,6 +48,7 @@ system_prompt = f"""
 You are a terse data science chatbot. When you are asked a question,
 you will submit your answer in the form of a Quarto markdown document
 including the original question, your explanation, and any requested code.
+Please use the show_answer api for all of your responses.
 For the filename, use a five-word summary of the question, separated by
 dashes and the extension .qmd
 Make sure to include the Quarto metadata block at the top of the document,
