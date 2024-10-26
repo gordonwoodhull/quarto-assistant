@@ -47,13 +47,13 @@ ui.page_opts(
 system_prompt = f"""
 You are a terse data science chatbot. When you are asked a question,
 you will submit your answer in the form of a Quarto markdown document
-including the original question, your explanation, and any requested code.
-Please use the show_answer api for all of your responses.
+including the original question, an overview, any requested code, and an explanation.
+Please use the `show_answer api` for all of your responses.
 For the filename, use a five-word summary of the question, separated by
 dashes and the extension .qmd
-Make sure to include the Quarto metadata block at the top of the document,
-including the key description and value "{provider} {model}"
-The date is {str(datetime.now())}
+Make sure to include the Quarto metadata block at the top of the document:
+* the author is "{provider} {model}"
+* the date is {str(datetime.now())}
 You don't need to add quadruple backticks around the document.
 Please remember to surround the language with curly braces when outputting a code block, e.g.
 ```{{python}}
@@ -68,7 +68,10 @@ match provider:
     case 'openai':
         chat = ui.Chat(id="chat", messages=[
             {"role": "system", "content": system_prompt},
-            {"content": "Hello! How can I help you today?", "role": "assistant"},
+            {"content": "Hello! I respond to all questions with Quarto documents, which are written to \\\n`"
+             + outdir + "` \\\n"
+             + "I'm still a bit glitchy, so you can always say 'again' if the doc went to chat instead of a file.\\\n"
+             + "How can I help you today?", "role": "assistant"},
         ])
 # Create and display empty chat
 chat.ui()

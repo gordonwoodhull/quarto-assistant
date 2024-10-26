@@ -1,4 +1,4 @@
-## Quarto chatbot
+## Quarto Data Science Chatbot
 
 This chatbot outputs all its responses in the form of Quarto documents.
 
