@@ -1,8 +1,3 @@
-# ------------------------------------------------------------------------------------
-# A basic Shiny Chat example powered by Anthropic's Claude model.
-# To run it, you'll need an Anthropic API key.
-# To get one, follow the instructions at https://docs.anthropic.com/en/api/getting-started
-# ------------------------------------------------------------------------------------
 import os
 import sys
 import json
