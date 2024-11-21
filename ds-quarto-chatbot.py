@@ -98,7 +98,6 @@ def show_answer(filename: str, answer: str) -> str:
                 count = (count or 1) + 1
     return '````\n' + answer + '````\n'
 
-
 match provider:
     case 'anthropic':
         chat_model = ChatAnthropic(system_prompt=system_prompt, model=model)
@@ -119,5 +118,5 @@ chat.ui()
 # Define a callback to run when the user submits a message
 @chat.on_user_submit
 async def _():
-    response = chat_model.chat(chat.user_input())
-    await chat.append_message(response.content)
+    response = chat_model.stream(chat.user_input())
+    await chat.append_message_stream(response)
