@@ -9,10 +9,8 @@ import json
 import re
 from datetime import datetime
 from app_utils import load_dotenv
-# from anthropic import AsyncAnthropic
 
 from shiny.express import ui
-# from openai import AsyncOpenAI
 from chatlas import ChatAnthropic, ChatOpenAI
 
 # Either explicitly set the OPENAI_API_KEY (or soon, ANTHROPIC_API_KEY) environment variable before launching the
@@ -20,15 +18,16 @@ from chatlas import ChatAnthropic, ChatOpenAI
 # as environment variables which can later be read by `os.getenv()`.
 
 provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'openai'
+model = os.environ.get('QUARTO_DS_CHATBOT_MODEL')
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 
 
 load_dotenv()
 match provider:
     case 'anthropic':
-        model = "claude-3-opus-20240229"
+        model = model or "claude-3-opus-20240229" # "claude-3-5-sonnet-latest"
     case 'openai':
-        model = "gpt-4o"
+        model = model or "gpt-4o"
     case _:
         print('unsupported provider', provider)
         sys.exit(2)
@@ -43,6 +42,8 @@ ui.page_opts(
     fillable_mobile=True,
 )
 
+author_name = f"{provider} {model}"
+
 system_prompt = f"""
 You are a terse data science chatbot. When you are asked a question,
 you will submit your answer in the form of a Quarto markdown document
@@ -51,7 +52,7 @@ Please use the `show_answer` tool for all of your responses.
 For the filename, use a five-word summary of the question, separated by
 dashes and the extension .qmd
 Make sure to include the Quarto metadata block at the top of the document:
-* the author is "{provider} {model}"
+* the author is "{author_name}"
 * the date is {str(datetime.now())}
 You don't need to add quadruple backticks around the document.
 Please remember to surround the language with curly braces when outputting a code block, e.g.
@@ -98,8 +99,9 @@ def show_answer(filename: str, answer: str) -> str:
 
 messages = [
     {"role": "system", "content": system_prompt},
-    {"content": "Hello! I respond to all questions with Quarto documents, which are written to \\\n`"
-        + outdir + "` \\\n"
+    {"content": f"Hello! I am an instance of `{author_name}`.\n\n"
+        + "I respond to all questions with Quarto documents, written to \\\n`"
+        + outdir + "` \n\n"
         + "How can I help you today?", "role": "assistant"},
 ]
 match provider:
