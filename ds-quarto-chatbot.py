@@ -11,7 +11,7 @@ from datetime import datetime
 from app_utils import load_dotenv
 
 from shiny.express import ui
-from chatlas import ChatAnthropic, ChatOpenAI
+from chatlas import ChatAnthropic, ChatOpenAI, ChatOllama
 
 # Either explicitly set the OPENAI_API_KEY (or soon, ANTHROPIC_API_KEY) environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -28,6 +28,8 @@ match provider:
         model = model or "claude-3-5-sonnet-20240620" # claude-3-5-sonnet-latest currently crashes
     case 'openai':
         model = model or "gpt-4o"
+    case 'ollama':
+        model = model or "llama3.2"
     case _:
         print('unsupported provider', provider)
         sys.exit(2)
@@ -104,11 +106,15 @@ messages = [
         + outdir + "` \n\n"
         + "How can I help you today?", "role": "assistant"},
 ]
+streaming = True
 match provider:
     case 'anthropic':
         chat_model = ChatAnthropic(system_prompt=system_prompt, model=model)
     case 'openai':
         chat_model = ChatOpenAI(system_prompt=system_prompt, model=model)
+    case 'ollama':
+        chat_model = ChatOllama(system_prompt=system_prompt, model=model)
+        streaming = False
 chat_model.register_tool(show_answer)
 chat = ui.Chat(id="chat", messages=messages)
 # Create and display empty chat
@@ -118,5 +124,10 @@ chat.ui()
 # Define a callback to run when the user submits a message
 @chat.on_user_submit
 async def _():
-    response = chat_model.stream(chat.user_input())
-    await chat.append_message_stream(response)
+    if streaming:
+        response = chat_model.stream(chat.user_input())
+        await chat.append_message_stream(response)
+    else:
+        response = chat_model.chat(chat.user_input())
+        await chat.append_message(response.content)
+
