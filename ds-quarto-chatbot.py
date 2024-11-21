@@ -13,7 +13,7 @@ from app_utils import load_dotenv
 
 from shiny.express import ui
 # from openai import AsyncOpenAI
-from chatlas import ChatAnthropic
+from chatlas import ChatAnthropic, ChatOpenAI
 
 # Either explicitly set the OPENAI_API_KEY (or soon, ANTHROPIC_API_KEY) environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -26,11 +26,9 @@ outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 load_dotenv()
 match provider:
     case 'anthropic':
-        # llm = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         model = "claude-3-opus-20240229"
-    # case 'openai':
-        # llm = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        # model = "gpt-4o" # Make sure to use a model that supports function calling
+    case 'openai':
+        model = "gpt-4o"
     case _:
         print('unsupported provider', provider)
         sys.exit(2)
@@ -98,19 +96,19 @@ def show_answer(filename: str, answer: str) -> str:
                 count = (count or 1) + 1
     return '````\n' + answer + '````\n'
 
+messages = [
+    {"role": "system", "content": system_prompt},
+    {"content": "Hello! I respond to all questions with Quarto documents, which are written to \\\n`"
+        + outdir + "` \\\n"
+        + "How can I help you today?", "role": "assistant"},
+]
 match provider:
     case 'anthropic':
         chat_model = ChatAnthropic(system_prompt=system_prompt, model=model)
-        chat_model.register_tool(show_answer)
-    #     chat = ui.Chat()
-    # case 'openai':
-        chat = ui.Chat(id="chat", messages=[
-            {"role": "system", "content": system_prompt},
-            {"content": "Hello! I respond to all questions with Quarto documents, which are written to \\\n`"
-             + outdir + "` \\\n"
-             + "I'm still a bit glitchy, so you can always say 'again' if the doc went to chat instead of a file.\\\n"
-             + "How can I help you today?", "role": "assistant"},
-        ])
+    case 'openai':
+        chat_model = ChatOpenAI(system_prompt=system_prompt, model=model)
+chat_model.register_tool(show_answer)
+chat = ui.Chat(id="chat", messages=messages)
 # Create and display empty chat
 chat.ui()
 
