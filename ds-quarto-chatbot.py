@@ -13,16 +13,17 @@ from app_utils import load_dotenv
 from shiny.express import ui
 from chatlas import ChatAnthropic, ChatOpenAI, ChatOllama
 
-# Either explicitly set the OPENAI_API_KEY (or soon, ANTHROPIC_API_KEY) environment variable before launching the
+# Either explicitly set the OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
 # as environment variables which can later be read by `os.getenv()`.
+load_dotenv()
 
 provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'anthropic'
 model = os.environ.get('QUARTO_DS_CHATBOT_MODEL')
+debug = os.environ.get('QUARTO_DS_CHATBOT_DEBUG') or False
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 
-
-load_dotenv()
+provider_greeting = ""
 match provider:
     case 'anthropic':
         model = model or "claude-3-5-sonnet-20240620" # claude-3-5-sonnet-latest currently crashes
@@ -30,6 +31,7 @@ match provider:
         model = model or "gpt-4o"
     case 'ollama':
         model = model or "llama3.2"
+        provider_greeting = "> 🚧 Warning\\\n> `ollama` tool calling is not working, so you won't get Quarto document outputs (yet?)\n\n"
     case _:
         print('unsupported provider', provider)
         sys.exit(2)
@@ -104,17 +106,19 @@ messages = [
     {"content": f"Hello! I am an instance of `{author_name}`.\n\n"
         + "I respond to all questions with Quarto documents, written to \\\n`"
         + outdir + "` \n\n"
+        + provider_greeting
         + "How can I help you today?", "role": "assistant"},
 ]
 streaming = True
 match provider:
     case 'anthropic':
-        chat_model = ChatAnthropic(system_prompt=system_prompt, model=model)
+        chat_model_constructor = ChatAnthropic
     case 'openai':
-        chat_model = ChatOpenAI(system_prompt=system_prompt, model=model)
+        chat_model_constructor = ChatOpenAI
     case 'ollama':
-        chat_model = ChatOllama(system_prompt=system_prompt, model=model)
+        chat_model_constructor = ChatOllama
         streaming = False
+chat_model = chat_model_constructor(system_prompt=system_prompt, model=model)
 chat_model.register_tool(show_answer)
 chat = ui.Chat(id="chat", messages=messages)
 # Create and display empty chat
@@ -126,8 +130,9 @@ chat.ui()
 async def _():
     if streaming:
         response = chat_model.stream(chat.user_input())
+#        response = await chat_model.stream_async(chat.user_input())
         await chat.append_message_stream(response)
     else:
-        response = chat_model.chat(chat.user_input())
+        response = chat_model.chat(chat.user_input(), echo = debug and "all")
         await chat.append_message(response.content)
 
