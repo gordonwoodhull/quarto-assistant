@@ -17,7 +17,7 @@ from chatlas import ChatAnthropic, ChatOpenAI
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
 # as environment variables which can later be read by `os.getenv()`.
 
-provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'openai'
+provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'anthropic'
 model = os.environ.get('QUARTO_DS_CHATBOT_MODEL')
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 
@@ -25,7 +25,7 @@ outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 load_dotenv()
 match provider:
     case 'anthropic':
-        model = model or "claude-3-opus-20240229" # "claude-3-5-sonnet-latest"
+        model = model or "claude-3-5-sonnet-20240620" # claude-3-5-sonnet-latest currently crashes
     case 'openai':
         model = model or "gpt-4o"
     case _:
