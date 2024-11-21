@@ -9,10 +9,11 @@ import json
 import re
 from datetime import datetime
 from app_utils import load_dotenv
-from anthropic import AsyncAnthropic
+# from anthropic import AsyncAnthropic
 
 from shiny.express import ui
-from openai import AsyncOpenAI
+# from openai import AsyncOpenAI
+from chatlas import ChatAnthropic
 
 # Either explicitly set the OPENAI_API_KEY (or soon, ANTHROPIC_API_KEY) environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -25,11 +26,11 @@ outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
 load_dotenv()
 match provider:
     case 'anthropic':
-        llm = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        # llm = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         model = "claude-3-opus-20240229"
-    case 'openai':
-        llm = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        model = "gpt-4o" # Make sure to use a model that supports function calling
+    # case 'openai':
+        # llm = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        # model = "gpt-4o" # Make sure to use a model that supports function calling
     case _:
         print('unsupported provider', provider)
         sys.exit(2)
@@ -48,7 +49,7 @@ system_prompt = f"""
 You are a terse data science chatbot. When you are asked a question,
 you will submit your answer in the form of a Quarto markdown document
 including the original question, an overview, any requested code, and an explanation.
-Please use the `show_answer api` for all of your responses.
+Please use the `show_answer` tool for all of your responses.
 For the filename, use a five-word summary of the question, separated by
 dashes and the extension .qmd
 Make sure to include the Quarto metadata block at the top of the document:
@@ -61,22 +62,21 @@ Please remember to surround the language with curly braces when outputting a cod
 Thank you!
 """
 
+def show_answer(filename: str, answer: str) -> str:
+    """
+    Reports an answer in Quarto markdown format.
 
-match provider:
-    case 'anthropic':
-        chat = ui.Chat(id="chat")
-    case 'openai':
-        chat = ui.Chat(id="chat", messages=[
-            {"role": "system", "content": system_prompt},
-            {"content": "Hello! I respond to all questions with Quarto documents, which are written to \\\n`"
-             + outdir + "` \\\n"
-             + "I'm still a bit glitchy, so you can always say 'again' if the doc went to chat instead of a file.\\\n"
-             + "How can I help you today?", "role": "assistant"},
-        ])
-# Create and display empty chat
-chat.ui()
-
-def show_answer(filename, answer):
+    Parameters
+    ----------
+    filename
+        The output filename for the Quarto document, with extension "qmd".
+    answer
+        The answer and explanation in Quarto markdown format.
+    
+    Returns
+    -------
+    The same answer, wrapped in quadruple backticks.
+    """
     print('\nreceived quarto markdown result\n')
     print(answer)
     if filename:
@@ -96,87 +96,28 @@ def show_answer(filename, answer):
                     break
             except:
                 count = (count or 1) + 1
-
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "show_answer",
-            "description": "Show an answer including explanation in Quarto markdown format",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "filename": {
-                        "type": "string",
-                        "description": "The name of the Quarto markdown file to output, with base derived from the question and extension .qmd"
-                    },
-                    "answer": {
-                        "type": "string",
-                        "description": "The answer and explanation as a Quarto markdown document",
-                    },
-                },
-                "required": ["filename", "answer"],
-            },
-        },
-    }
-]
+    return '````\n' + answer + '````\n'
 
 
-async def process_conversation(messages):
-    match provider:
-        case 'anthropic':
-            response = await llm.messages.create(
-                model=model,
-                messages=messages,
-                max_tokens=1000,
-            )
-        case 'openai':
-            response = await llm.chat.completions.create(
-                model=model,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-            )
-
-    message = response.choices[0].message
-
-    if not message.tool_calls:
-        # we're expecting all replies through tool calls, but regular responses are possible
-        print('\nUh oh, received chat response\n')
-        print(response)
-        await chat.append_message(response)
-        return
-
-    # Process all tool calls
-    for tool_call in message.tool_calls:
-        function_name = tool_call.function.name
-        function_args = json.loads(tool_call.function.arguments)
-
-        if function_name == "show_answer":
-            answer = function_args.get("answer")
-            filename = function_args.get("filename")
-            show_answer(filename, answer)
-            content = '````\n' + answer + '````\n'
-        else:
-            # If the function is unknown, return an error message
-            # and also log to stderr
-            content = f"Unknown function: {function_name}"
-            print(f"Unknown function: {function_name}", file=sys.stderr)
-
-        await chat.append_message(
-            {
-                "role": "assistant",
-                # "tool_call_id": tool_call.id,
-                # "name": function_name,
-                "content": content,
-            }
-        )
+match provider:
+    case 'anthropic':
+        chat_model = ChatAnthropic(system_prompt=system_prompt, model=model)
+        chat_model.register_tool(show_answer)
+    #     chat = ui.Chat()
+    # case 'openai':
+        chat = ui.Chat(id="chat", messages=[
+            {"role": "system", "content": system_prompt},
+            {"content": "Hello! I respond to all questions with Quarto documents, which are written to \\\n`"
+             + outdir + "` \\\n"
+             + "I'm still a bit glitchy, so you can always say 'again' if the doc went to chat instead of a file.\\\n"
+             + "How can I help you today?", "role": "assistant"},
+        ])
+# Create and display empty chat
+chat.ui()
 
 
 # Define a callback to run when the user submits a message
 @chat.on_user_submit
 async def _():
-    # Get messages currently in the chat
-    messages = chat.messages(format=provider)
-
-    await process_conversation(messages)
+    response = chat_model.chat(chat.user_input())
+    await chat.append_message(response.content)
