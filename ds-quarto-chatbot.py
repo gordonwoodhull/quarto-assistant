@@ -118,7 +118,6 @@ match provider:
         chat_model_constructor = ChatOpenAI
     case 'google':
         chat_model_constructor = ChatGoogle
-        streaming = False
     case 'ollama':
         chat_model_constructor = ChatOllama
         streaming = False
