@@ -6,7 +6,7 @@ from datetime import datetime
 from app_utils import load_dotenv
 
 from shiny.express import ui
-from chatlas import ChatAnthropic, ChatOpenAI, ChatOllama
+from chatlas import ChatAnthropic, ChatOpenAI, ChatGoogle, ChatOllama
 
 # Either explicitly set the OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -24,9 +24,12 @@ match provider:
         model = model or "claude-3-5-sonnet-20240620" # claude-3-5-sonnet-latest currently crashes
     case 'openai':
         model = model or "gpt-4o"
+    case 'google':
+        model = model or 'gemini-1.5-flash'
+        provider_greeting = "> 🚧 Warning\\\n> `google gemini` tool calling is not quite working, but it looks like it could work. If you know how to fix this, please submit a PR.\n\n"
     case 'ollama':
         model = model or "llama3.2"
-        provider_greeting = "> 🚧 Warning\\\n> `ollama` tool calling is not working, so you won't get Quarto document outputs (yet?)\n\n"
+        provider_greeting = "> 🚧 Warning\\\n> `ollama` tool calling does not seem to be working, so you probably won't get Quarto document outputs yet. If you know how to fix this, please submit a PR.\n\n"
     case _:
         print('unsupported provider', provider)
         sys.exit(2)
@@ -34,14 +37,18 @@ match provider:
 print(f'Using provider {provider}, model {model}')
 print('Output directory:', outdir)
 
-# Set some Shiny page options
+author_name = f"{provider} {model}"
+
+# Set up the Shiny page
 ui.page_opts(
-    title="Quarto Data Science Chat (" + provider + ")",
+    title=ui.div(
+        ui.h2("Quarto Data Science Chat"),
+        ui.h6(ui.code(author_name))
+    ),
+    # subtitle=author_name, # 
     fillable=True,
     fillable_mobile=True,
 )
-
-author_name = f"{provider} {model}"
 
 system_prompt = f"""
 You are a terse data science chatbot. When you are asked a question,
@@ -60,7 +67,7 @@ Please remember to surround the language with curly braces when outputting a cod
 Thank you!
 """
 
-def show_answer(filename: str, answer: str) -> str:
+def show_answer(filename: str, answer: str) -> bool:
     """
     Reports an answer in Quarto markdown format.
 
@@ -73,7 +80,7 @@ def show_answer(filename: str, answer: str) -> str:
     
     Returns
     -------
-    The same answer, wrapped in quadruple backticks.
+    True for success, False for failure
     """
     print('\nreceived quarto markdown result\n')
     print(answer)
@@ -94,12 +101,11 @@ def show_answer(filename: str, answer: str) -> str:
                     break
             except:
                 count = (count or 1) + 1
-    return '````\n' + answer + '````\n'
+    return True
 
 messages = [
     {"role": "system", "content": system_prompt},
-    {"content": f"Hello! I am an instance of `{author_name}`.\n\n"
-        + "I respond to all questions with Quarto documents, written to \\\n`"
+    {"content": f"Hello! I am a chatbot which responds to all questions with Quarto documents, written to \\\n`"
         + outdir + "` \n\n"
         + provider_greeting
         + "How can I help you today?", "role": "assistant"},
@@ -110,6 +116,9 @@ match provider:
         chat_model_constructor = ChatAnthropic
     case 'openai':
         chat_model_constructor = ChatOpenAI
+    case 'google':
+        chat_model_constructor = ChatGoogle
+        streaming = False
     case 'ollama':
         chat_model_constructor = ChatOllama
         streaming = False
@@ -124,7 +133,7 @@ chat.ui()
 @chat.on_user_submit
 async def _():
     if streaming:
-        response = chat_model.stream(chat.user_input())
+        response = chat_model.stream(chat.user_input(), echo = debug and "all")
 #        response = await chat_model.stream_async(chat.user_input())
         await chat.append_message_stream(response)
     else:
