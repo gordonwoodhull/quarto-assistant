@@ -7,8 +7,9 @@ from datetime import datetime
 from app_utils import load_dotenv
 import docker
 
-from shiny.express import ui
 from chatlas import ChatAnthropic, ChatOpenAI, ChatGoogle, ChatOllama
+
+from shiny import App, ui
 
 # Either explicitly set the OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -41,14 +42,12 @@ print('Output directory:', outdir)
 
 author_name = f"{provider} {model}"
 
-# Set up the Shiny page
-ui.page_opts(
-    title=ui.div(
+app_ui = ui.page_fillable(
+    ui.panel_title(ui.div(
         ui.h2("Quarto Data Science Chat"),
         ui.h6(ui.code(author_name))
-    ),
-    # subtitle=author_name, # 
-    fillable=True,
+    )),
+    ui.chat_ui("chat"),  
     fillable_mobile=True,
 )
 
@@ -149,19 +148,25 @@ match provider:
         streaming = False
 chat_model = chat_model_constructor(system_prompt=system_prompt, model=model)
 chat_model.register_tool(show_answer)
-chat = ui.Chat(id="chat", messages=messages)
-# Create and display empty chat
-chat.ui()
+
+def server(input):
+    # Create a chat instance and display it
+    chat = ui.Chat(id="chat")  
+
+    # Define a callback to run when the user submits a message
+    @chat.on_user_submit
+    async def _():
+        if streaming:
+            response = chat_model.stream(chat.user_input(), echo = debug and "all")
+    #        response = await chat_model.stream_async(chat.user_input())
+            await chat.append_message_stream(response)
+        else:
+            response = chat_model.chat(chat.user_input(), echo = debug and "all")
+            await chat.append_message(response.content)
+
+app = App(app_ui, server)
 
 
 # Define a callback to run when the user submits a message
-@chat.on_user_submit
-async def _():
-    if streaming:
-        response = chat_model.stream(chat.user_input(), echo = debug and "all")
-#        response = await chat_model.stream_async(chat.user_input())
-        await chat.append_message_stream(response)
-    else:
-        response = chat_model.chat(chat.user_input(), echo = debug and "all")
-        await chat.append_message(response.content)
+
 
