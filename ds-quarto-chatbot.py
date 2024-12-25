@@ -5,6 +5,11 @@ import re
 import pathlib
 from datetime import datetime
 from app_utils import load_dotenv
+
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.staticfiles import StaticFiles
+
 import docker
 
 from chatlas import ChatAnthropic, ChatOpenAI, ChatGoogle, ChatOllama
@@ -20,6 +25,8 @@ provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'anthropic'
 model = os.environ.get('QUARTO_DS_CHATBOT_MODEL')
 debug = os.environ.get('QUARTO_DS_CHATBOT_DEBUG') or False
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
+
+static_output = StaticFiles(directory=outdir)
 
 provider_greeting = ""
 match provider:
@@ -164,8 +171,16 @@ def server(input):
             response = chat_model.chat(chat.user_input(), echo = debug and "all")
             await chat.append_message(response.content)
 
-app = App(app_ui, server)
+app_shiny = App(app_ui, server)
 
+
+# combine apps ----
+routes = [
+    Mount('/output', app=static_output),
+    Mount('/chatbot', app=app_shiny)
+]
+
+app = Starlette(routes=routes)
 
 # Define a callback to run when the user submits a message
 
