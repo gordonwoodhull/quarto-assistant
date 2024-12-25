@@ -14,7 +14,7 @@ import docker
 
 from chatlas import ChatAnthropic, ChatOpenAI, ChatGoogle, ChatOllama
 
-from shiny import App, ui
+from shiny import App, ui, render, reactive
 
 # Either explicitly set the OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -49,12 +49,14 @@ print('Output directory:', outdir)
 
 author_name = f"{provider} {model}"
 
-app_ui = ui.page_fillable(
-    ui.panel_title(ui.div(
+app_ui = ui.page_sidebar(
+    ui.sidebar(ui.chat_ui("chat"), width='40%'),
+    ui.output_ui('rendered'),
+    title = ui.div(
         ui.h2("Quarto Data Science Chat"),
         ui.h6(ui.code(author_name))
-    )),
-    ui.chat_ui("chat"),  
+    ),
+    fillable=True,
     fillable_mobile=True,
 )
 
@@ -76,6 +78,7 @@ Thank you!
 """
 
 docker_client = docker.from_env()
+output_url = reactive.value('output/none.html')
 
 def render_quarto(qmdfilename: str):
     qmddir = os.path.dirname(qmdfilename)
@@ -89,6 +92,8 @@ def render_quarto(qmdfilename: str):
                 'mode': 'rw'
             }
         })
+    output_url.set(re.sub('^' + outdir, 'output',
+                          re.sub(r'\.qmd$', '.html', qmdfilename)))
 
 def show_answer(filename: str, answer: str) -> bool:
     """
@@ -171,13 +176,18 @@ def server(input):
             response = chat_model.chat(chat.user_input(), echo = debug and "all")
             await chat.append_message(response.content)
 
+    @render.ui
+    def rendered():
+        return ui.tags.iframe(src=output_url(), style='height: 100%'),
+
+
 app_shiny = App(app_ui, server)
 
 
 # combine apps ----
 routes = [
     Mount('/output', app=static_output),
-    Mount('/chatbot', app=app_shiny)
+    Mount('/', app=app_shiny)
 ]
 
 app = Starlette(routes=routes)
