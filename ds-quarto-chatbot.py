@@ -2,8 +2,10 @@ import os
 import sys
 import json
 import re
+import pathlib
 from datetime import datetime
 from app_utils import load_dotenv
+import docker
 
 from shiny.express import ui
 from chatlas import ChatAnthropic, ChatOpenAI, ChatGoogle, ChatOllama
@@ -67,6 +69,21 @@ Please remember to surround the language with curly braces when outputting a cod
 Thank you!
 """
 
+docker_client = docker.from_env()
+
+def render_quarto(qmdfilename: str):
+    qmddir = os.path.dirname(qmdfilename)
+    qmdfile = os.path.basename(qmdfilename)
+    logs = docker_client.containers.run(
+        'docker.io/library/quarto-fuller:latest',
+        f'bash -c "cd /home/quarto; quarto render {qmdfile}"',
+        volumes = {
+            qmddir: {
+                'bind': '/home/quarto',
+                'mode': 'rw'
+            }
+        })
+
 def show_answer(filename: str, answer: str) -> bool:
     """
     Reports an answer in Quarto markdown format.
@@ -87,20 +104,29 @@ def show_answer(filename: str, answer: str) -> bool:
     if filename:
         if not re.search(r'\.qmd$', filename):
             filename = filename + '.qmd' # choose your battles
-        count = None
+        count = 0
+        stem = pathlib.Path(filename).stem
         while True:
             if count:
-                filename2 = re.sub(r'\.qmd$', '-' + str(count) + '.qmd', filename)
+                if count > 100:
+                    print('\ntoo many collisions, giving up')
+                    return False
+                stem2 = stem + '-' + str(count)
             else:
-                filename2 = filename
-            filename2 = os.path.join(outdir, filename2)
+                stem2 = stem
+            iodir = os.path.join(outdir, stem2)
             try:
-                with open(filename2, "x") as qmd_file:
-                    print('\nwrote answer to', filename2)
+                os.mkdir(iodir)
+                qmdfilename = os.path.join(iodir, filename)
+                with open(qmdfilename, "x") as qmd_file:
                     qmd_file.write(answer)
-                    break
-            except:
-                count = (count or 1) + 1
+                    print('\nwrote answer to', qmdfilename)
+                render_quarto(qmdfilename)
+                break
+            except FileExistsError:
+                count = count + 1
+    else:
+        return False
     return True
 
 messages = [
