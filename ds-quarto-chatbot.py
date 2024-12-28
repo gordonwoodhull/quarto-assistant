@@ -25,6 +25,14 @@ provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'anthropic'
 model = os.environ.get('QUARTO_DS_CHATBOT_MODEL')
 debug = os.environ.get('QUARTO_DS_CHATBOT_DEBUG') or False
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
+extra_python_packages = []
+epp = os.environ.get('QUARTO_DS_CHATBOT_EXTRA_PYTHON_PACKAGES')
+if epp:
+    extra_python_packages = re.split(r',\s*', epp)
+extra_r_packages = []
+erp = os.environ.get('QUARTO_DS_CHATBOT_EXTRA_R_PACKAGES')
+if erp:
+    extra_r_packages = re.split(r',\s*', erp)
 
 static_output = StaticFiles(directory=outdir)
 
@@ -83,9 +91,24 @@ output_url = reactive.value('output/none.html')
 def render_quarto(qmdfilename: str):
     qmddir = os.path.dirname(qmdfilename)
     qmdfile = os.path.basename(qmdfilename)
+    cmds = []
+    if extra_python_packages:
+        extra_python_packages_fmt = ' '.join(extra_python_packages)
+        cmds.append(f"pip install {extra_python_packages_fmt}")
+    if extra_r_packages:
+        extra_r_packages_fmt = ', '.join([f'\\"{p}\\"' for p in extra_r_packages])
+        cmds.append(f"sudo R --vanilla -e \"install.packages(c({extra_r_packages_fmt}), repos=\\\"http://cran.us.r-project.org\\\")\"")
+    cmds += [
+        'cd /home/quarto',
+        f'quarto render {qmdfile}',
+    ]
+    print('quarto commands', cmds)
+    command = f"bash -c '{"; ".join(cmds)}'"
+    print('quarto command', command)
+
     logs = docker_client.containers.run(
         'docker.io/library/quarto-fuller:latest',
-        f'bash -c "cd /home/quarto; quarto render {qmdfile}"',
+        command,
         volumes = {
             qmddir: {
                 'bind': '/home/quarto',
