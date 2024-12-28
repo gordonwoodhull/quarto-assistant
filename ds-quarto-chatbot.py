@@ -34,6 +34,11 @@ erp = os.environ.get('QUARTO_DS_CHATBOT_EXTRA_R_PACKAGES')
 if erp:
     extra_r_packages = re.split(r',\s*', erp)
 
+if debug:
+    os.environ['CHATLAS_LOG'] = 'info'
+    os.environ['ANTHROPIC_LOG'] = 'info'
+    os.environ['OPENAI_LOG'] = 'info'
+
 static_output = StaticFiles(directory=outdir)
 
 provider_greeting = ""
