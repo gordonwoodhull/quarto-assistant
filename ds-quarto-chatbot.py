@@ -44,7 +44,11 @@ static_output = StaticFiles(directory=outdir)
 provider_greeting = ""
 match provider:
     case 'anthropic':
-        model = model or "claude-3-5-sonnet-20240620" # claude-3-5-sonnet-latest currently crashes
+        # requires patch to chatlas, see
+        # https://github.com/posit-dev/chatlas/issues/10#issuecomment-2566552159
+        model = model or "claude-3-5-sonnet-latest"
+        # works with stock chatlas
+        # model = model or "claude-3-5-sonnet-20240620"
     case 'openai':
         model = model or "gpt-4o"
     case 'google':
@@ -66,7 +70,7 @@ app_ui = ui.page_sidebar(
     ui.sidebar(ui.chat_ui("chat"), width='40%'),
     ui.output_ui('rendered'),
     title = ui.div(
-        ui.h2("Quarto Data Science Chat"),
+        ui.h2("Quarto Assistant"),
         ui.h6(ui.code(author_name))
     ),
     fillable=True,
@@ -133,7 +137,7 @@ def show_answer(filename: str, answer: str) -> bool:
         The output filename for the Quarto document, with extension "qmd".
     answer
         The answer and explanation in Quarto markdown format.
-    
+
     Returns
     -------
     True for success, False for failure
@@ -170,8 +174,7 @@ def show_answer(filename: str, answer: str) -> bool:
 
 messages = [
     {"role": "system", "content": system_prompt},
-    {"content": f"Hello! I am a chatbot which responds to all questions with Quarto documents, written to \\\n`"
-        + outdir + "` \n\n"
+    {"content": f"Hello! I am a chatbot which responds to questions with Quarto documents.\n\n"
         + provider_greeting
         + "How can I help you today?", "role": "assistant"},
 ]
@@ -191,14 +194,15 @@ chat_model.register_tool(show_answer)
 
 def server(input):
     # Create a chat instance and display it
-    chat = ui.Chat(id="chat")  
+    chat = ui.Chat(id="chat", messages = messages)
 
     # Define a callback to run when the user submits a message
     @chat.on_user_submit
     async def _():
         if streaming:
             response = chat_model.stream(chat.user_input(), echo = debug and "all")
-    #        response = await chat_model.stream_async(chat.user_input())
+            # object bool can't be used in 'await' expression'"
+            # response = await chat_model.stream_async(chat.user_input(), echo = debug and "all")
             await chat.append_message_stream(response)
         else:
             response = chat_model.chat(chat.user_input(), echo = debug and "all")
