@@ -72,7 +72,13 @@ app_ui = ui.page_sidebar(
     ui.output_ui('rendered'),
     title = ui.div(
         ui.h2("Quarto Assistant"),
-        ui.h6(ui.code(author_name))
+        ui.div(
+            ui.div(ui.h6(ui.code(author_name))),
+            ui.div(ui.download_button('downloadQmd', 'Download qmd')),
+
+            style='width: 100%; display: flex; justify-content: space-between'
+        ),
+        style='width: 100%'
     ),
     fillable=True,
     fillable_mobile=True,
@@ -96,7 +102,7 @@ Thank you!
 """
 
 docker_client = docker.from_env()
-output_url = reactive.value('output/none.html')
+current_doc = reactive.value('none')
 
 def render_quarto(qmdfilename: str):
     qmddir = os.path.dirname(qmdfilename)
@@ -126,8 +132,7 @@ def render_quarto(qmdfilename: str):
                 'mode': 'rw'
             }
         })
-    output_url.set(re.sub('^' + outdir, 'output',
-                          re.sub(r'\.qmd$', '.html', qmdfilename)))
+    current_doc.set(re.sub('^' + outdir + '/', '', re.sub(r'\.qmd$', '', qmdfilename)))
 
 def show_answer(filename: str, answer: str) -> bool:
     """
@@ -212,7 +217,11 @@ def server(input):
 
     @render.ui
     def rendered():
-        return ui.tags.iframe(src=output_url(), style='height: 100%'),
+        return ui.tags.iframe(src='output/' + current_doc() + '.html', style='height: 100%'),
+
+    @render.download()
+    def downloadQmd():
+        return os.path.join(outdir, current_doc() + '.qmd')
 
 
 app_shiny = App(app_ui, server)
