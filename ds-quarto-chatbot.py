@@ -25,6 +25,7 @@ provider = os.environ.get('QUARTO_DS_CHATBOT_PROVIDER') or 'anthropic'
 model = os.environ.get('QUARTO_DS_CHATBOT_MODEL')
 debug = os.environ.get('QUARTO_DS_CHATBOT_DEBUG') or False
 outdir = os.environ.get('QUARTO_DS_CHATBOT_OUTPUT_DIR') or '.'
+docker_image = os.environ.get('QUARTO_DS_CHATBOT_DOCKER_IMAGE') or None
 extra_python_packages = []
 epp = os.environ.get('QUARTO_DS_CHATBOT_EXTRA_PYTHON_PACKAGES')
 if epp:
@@ -111,12 +112,13 @@ def render_quarto(qmdfilename: str):
         'cd /home/quarto',
         f'quarto render {qmdfile}',
     ]
-    print('quarto commands', cmds)
     command = f"bash -c '{"; ".join(cmds)}'"
     print('quarto command', command)
-
+    if not docker_image:
+        print('QUARTO_DS_CHATBOT_DOCKER_IMAGE not set, not running Quarto')
+        return
     logs = docker_client.containers.run(
-        'docker.io/library/quarto-fuller:latest',
+        docker_image,
         command,
         volumes = {
             qmddir: {
