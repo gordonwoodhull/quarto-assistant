@@ -3,6 +3,7 @@ import sys
 import json
 import re
 import pathlib
+import zipfile
 from datetime import datetime
 from app_utils import load_dotenv
 
@@ -15,6 +16,15 @@ import docker
 from chatlas import ChatAnthropic, ChatOpenAI, ChatGoogle, ChatOllama
 
 from shiny import App, ui, render, reactive
+
+# from https://stackoverflow.com/a/1855118/how-to-create-a-zip-archive-of-a-directory
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            ziph.write(os.path.join(root, file),
+                       os.path.relpath(os.path.join(root, file),
+                                       os.path.join(path, '..')))
 
 # Either explicitly set the OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable before launching the
 # app, or set them in a file named `.env`. The `python-dotenv` package will load `.env`
@@ -74,8 +84,11 @@ app_ui = ui.page_sidebar(
         ui.h2("Quarto Assistant"),
         ui.div(
             ui.div(ui.h6(ui.code(author_name))),
-            ui.div(ui.download_button('downloadQmd', 'Download qmd')),
-
+            ui.div(
+                ui.span(ui.download_link('downloadZip', 'download zip')),
+                '  ',
+                ui.span(ui.download_link('downloadQmd', 'download qmd')),
+            ),
             style='width: 100%; display: flex; justify-content: space-between'
         ),
         style='width: 100%'
@@ -222,6 +235,15 @@ def server(input):
     @render.download()
     def downloadQmd():
         return os.path.join(outdir, current_doc() + '.qmd')
+
+    @render.download()
+    def downloadZip():
+        docdir = os.path.split(current_doc())[0]
+        zipname = os.path.join(outdir, docdir + '.zip')
+        with zipfile.ZipFile(zipname, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipdir(os.path.join(outdir, docdir), zipf)
+        return zipname
+
 
 
 app_shiny = App(app_ui, server)
