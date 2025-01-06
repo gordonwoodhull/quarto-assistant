@@ -194,7 +194,9 @@ def show_answer(filename: str, answer: str) -> bool:
 
 messages = [
     {"role": "system", "content": system_prompt},
-    {"content": f"Hello! I am a chatbot which responds to questions with Quarto documents.\n\n"
+    {"content": "Hello! I am a chatbot which responds to questions with Quarto documents.\n\n"
+        + "I render each document in a Docker container and display the HTML.\n\n"
+        + "Quarto documents give you a reproducible way to verify the output of your LLM.\n\n"
         + provider_greeting
         + "How can I help you today?", "role": "assistant"},
 ]
