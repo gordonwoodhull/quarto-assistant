@@ -108,6 +108,7 @@ Make sure to include the Quarto metadata block at the top of the document:
 * the author is "{author_name}"
 * the date is {str(datetime.now())}
 You don't need to add quadruple backticks around the document.
+Please remember to add a blank line before any Markdown orderered or unordered list.
 Please remember to surround the language with curly braces when outputting a code block, e.g.
 ```{{python}}
 ```{{r}}
