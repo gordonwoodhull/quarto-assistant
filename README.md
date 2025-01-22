@@ -2,9 +2,13 @@
 
 This chatbot outputs all its responses in the form of Quarto documents.
 
+Using Quarto as the output format allows you to verify the results produced by an LLM in a reproducible way.
+
+### Implementation
+
 It is implemented in [Shiny for Python](https://shiny.posit.co/py/), using [chatlas](https://github.com/posit-dev/chatlas).
 
-Since Quarto documents can have arbitrary code in them, the chatbot spawns Quarto in a Docker container. Watch this space for published images.
+Since Quarto documents can have arbitrary code in them, the chatbot spawns Quarto in a Docker container. Watch this space for published Quarto images.
 
 Note: this is a single-user chatbot which serves its entire output directory at `output/`
 
