@@ -4,7 +4,11 @@ This chatbot outputs all its responses in the form of Quarto documents.
 
 It is implemented in [Shiny for Python](https://shiny.posit.co/py/), using [chatlas](https://github.com/posit-dev/chatlas).
 
-Since Quarto documents can have arbitrary code in them, the chatbot spawns Quarto in a Docker container, 
+Since Quarto documents can have arbitrary code in them, the chatbot spawns Quarto in a Docker container. Watch this space for published images.
+
+Note: this is a single-user chatbot which serves its entire output directory at `output/`
+
+For this reason, and also because it is using your API key, you should only run this locally or on secure networks.
 
 ### Environment variables
 
