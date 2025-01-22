@@ -55,11 +55,11 @@ static_output = StaticFiles(directory=outdir)
 provider_greeting = ""
 match provider:
     case 'anthropic':
-        # requires patch to chatlas, see
+        # currently requires patch to chatlas, see
         # https://github.com/posit-dev/chatlas/issues/10#issuecomment-2566552159
-        model = model or "claude-3-5-sonnet-latest"
+        # model = model or "claude-3-5-sonnet-latest"
         # works with stock chatlas
-        # model = model or "claude-3-5-sonnet-20240620"
+        model = model or "claude-3-5-sonnet-20240620"
     case 'openai':
         model = model or "gpt-4o"
     case 'google':
