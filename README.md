@@ -11,10 +11,9 @@ Quarto Assistant is implemented in [Shiny for Python](https://shiny.posit.co/py/
 Since Quarto documents can have arbitrary code in them, the chatbot spawns Quarto in a Docker container. Watch this space for published Quarto images.
 
 > :warning: Warning
-
-This is a single-user chatbot which serves its entire output directory at `output/`
-
-For this reason, and also because it is using your API key, you should only run this locally or on secure networks.
+> This is a single-user chatbot which serves its entire output directory at `output/`
+>
+> For this reason, and also because it is using your API key, you should only run this locally or on secure networks.
 
 ### Environment variables
 
