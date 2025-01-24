@@ -14,7 +14,7 @@ Since Quarto documents can have arbitrary code in them, the chatbot spawns Quart
 >
 > This is a single-user chatbot which serves its entire output directory at `output/`
 >
-> For this reason, and also because it is using your API key, you should only run this locally or on secure networks.
+> For this reason, and also because it is using your API key, you should only run this locally or secured.
 
 ### Environment variables
 
